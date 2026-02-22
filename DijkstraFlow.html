@@ -1,0 +1,284 @@
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Task Scheduler - Dijkstra's Algorithm</title>
+  <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #4B0082;
+      margin: 0;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    h1 {
+      color: #ffd8f0;
+      background-color: #5D3F8C;
+      border: 2px solid #ff69b4;
+      padding: 15px 25px;
+      border-radius: 12px;
+      box-shadow: 0 0 15px #ff69b4;
+      text-shadow: 1px 1px 3px #b3005e;
+      margin-bottom: 30px;
+      font-size: 3.5rem;
+    }
+
+    .card h2 {
+      margin-top: 0;
+      margin-bottom: 20px;
+      font-size: 1.5rem;
+      color: #ffb3da;
+      text-shadow: 1px 1px 3px #b3005e;
+      text-align: center;
+    }
+
+    .top-card {
+      width: 100%;
+      max-width: 600px; /* Set max-width for the top card */
+      margin-bottom: 30px; /* Space below the top card */
+    }
+
+    .bottom-container {
+      display: flex;
+      flex-direction: row; /* Horizontal layout for bottom cards */
+      gap: 30px; /* Space between bottom cards */
+      width: 100%;
+      max-width: 1200px; /* Increased max-width for better layout */
+    }
+
+    .card {
+      background-color: #2e1a47;
+      padding: 30px 20px;
+      border-radius: 15px;
+      box-shadow: 0 10px 25px rgba(138, 43, 226, 0.3);
+      flex: 1;
+      min-width: 300px;
+      max-width: 500px;
+      color: #f2e9ff;
+      border: 2px solid #ff69b4;
+    }
+
+    input, button {
+      padding: 12px;
+      margin: 10px 5px;
+      border-radius: 8px;
+      border: none;
+      font-size: 16px;
+      width: 90%;
+      background-color: #4a2a6a;
+      color: #f2e9ff;
+      box-shadow: 0 3px 5px rgba(255, 255, 255, 0.1);
+      transition: transform 0.1s ease-in-out;
+    }
+
+    input::placeholder {
+      color: #c9b5e3;
+    }
+
+    input:focus {
+      outline: 2px solid #a18cd1;
+    }
+
+    button {
+      background-color: #7e3ff2;
+      font-weight: bold;
+    }
+
+    button:hover {
+      background-color: #682bd7;
+      transform: scale(1.03);
+    }
+
+    ul {
+      list-style: none;
+      padding: 0;
+      margin-top: 20px;
+    }
+
+    li {
+      background: #3b245e;
+      margin: 10px auto;
+      padding: 15px 20px;
+      width: 90%;
+      border-radius: 10px;
+      box-shadow: 0 4px 12px rgba(200, 150, 255, 0.2);
+      font-size: 16px;
+      color: #f0e8ff;
+    }
+
+    #graph {
+      height: 400px;
+      width: 100%;
+      background-color: #2e1a47;
+      border-radius: 10px;
+    }
+
+    @media (max-width: 1000px) {
+      .bottom-container {
+        flex-direction: column; /* Stack vertically on smaller screens */
+        align-items: center;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>DijkstraFlow : A Task Optimization Tool</h1>
+  
+  <!-- Top Card -->
+  <div class="top-card card">
+    <h2>Input Tasks</h2>
+    <input type="text" id="taskName" placeholder="Task Name" />
+    <input type="number" id="priority" placeholder="Priority (lower = more urgent)" />
+    <input type="text" id="dependencies" placeholder="Dependencies (comma-separated)" />
+    <button onclick="addTask()">Add Task</button>
+    <button onclick="runDijkstra()">Optimize with Dijkstra</button>
+    <ul id="taskList"></ul>
+  </div>
+
+  <!-- Bottom Cards Container -->
+  <div class="bottom-container">
+    <!-- Output Card -->
+    <div class="card">
+      <h2>Optimized Task Order</h2>
+      <ul id="optimizedList"></ul>
+    </div>
+
+    <!-- Graph Visualization -->
+    <div class="card">
+      <h2>Dependency Graph</h2>
+      <div id="graph"></div>
+    </div>
+  </div>
+
+  <script>
+    let tasks = [];
+
+    function addTask() {
+      const taskName = document.getElementById("taskName").value;
+      const priority = parseInt(document.getElementById("priority").value);
+      const dependencies = document.getElementById("dependencies").value.split(',').map(dep => dep.trim()).filter(Boolean);
+
+      if (taskName && !isNaN(priority)) {
+        tasks.push({ name: taskName, priority: priority, dependencies: dependencies });
+        displayTasks(tasks);
+        document.getElementById("taskName").value = "";
+        document.getElementById("priority").value = "";
+        document.getElementById("dependencies").value = "";
+      } else {
+        alert("Enter valid task name and priority.");
+      }
+    }
+
+    function displayTasks(taskArray) {
+      const taskList = document.getElementById("taskList");
+      taskList.innerHTML = "";
+      taskArray.forEach(task => {
+        const li = document.createElement("li");
+        li.textContent = `${task.name} (Priority: ${task.priority}, Dependencies: ${task.dependencies.join(', ')})`;
+        taskList.appendChild(li);
+      });
+    }
+
+    function runDijkstra() {
+      const graph = {};
+      const taskNames = tasks.map(t => t.name);
+
+      taskNames.forEach(name => graph[name] = []);
+      tasks.forEach(task => {
+        task.dependencies.forEach(dep => {
+          if (graph[dep]) {
+            graph[dep].push({ to: task.name, weight: task.priority });
+          }
+        });
+      });
+
+      graph["_start_"] = [];
+      tasks.forEach(task => {
+        if (task.dependencies.length === 0) {
+          graph["_start_"].push({ to: task.name, weight: task.priority });
+        }
+      });
+
+      const distances = {};
+      const prev = {};
+      const visited = new Set();
+      const queue = [];
+
+      Object.keys(graph).forEach(node => distances[node] = Infinity);
+      distances["_start_"] = 0;
+      queue.push({ node: "_start_", dist: 0 });
+
+      while (queue.length > 0) {
+        queue.sort((a, b) => a.dist - b.dist);
+        const { node } = queue.shift();
+        if (visited.has(node)) continue;
+        visited.add(node);
+
+        graph[node].forEach(neighbor => {
+          const alt = distances[node] + neighbor.weight;
+          if (alt < distances[neighbor.to]) {
+            distances[neighbor.to] = alt;
+            prev[neighbor.to] = node;
+            queue.push({ node: neighbor.to, dist: alt });
+          }
+        });
+      }
+
+      const orderedTasks = taskNames.sort((a, b) => distances[a] - distances[b]);
+      const optimized = orderedTasks.map(name => tasks.find(task => task.name === name));
+
+      const optimizedList = document.getElementById("optimizedList");
+      optimizedList.innerHTML = "";
+      optimized.forEach(task => {
+        const li = document.createElement("li");
+        li.textContent = `${task.name} (Priority: ${task.priority}, Dependencies: ${task.dependencies.join(', ')})`;
+        optimizedList.appendChild(li);
+      });
+
+      // Render Dependency Graph
+      const nodes = new vis.DataSet(
+        optimized.map(task => ({
+          id: task.name,
+          label: task.name
+        }))
+      );
+
+      const edges = [];
+      optimized.forEach(task => {
+        task.dependencies.forEach(dep => {
+          edges.push({ from: dep, to: task.name });
+        });
+      });
+
+      const container = document.getElementById("graph");
+      const data = { nodes: nodes, edges: edges };
+      const options = {
+        nodes: {
+          shape: 'dot',
+          size: 18,
+          color: '#cba0f5',
+          font: { color: '#ffffff' }
+        },
+        edges: {
+          color: '#a18cd1',
+          arrows: { to: { enabled: true, scaleFactor: 1 } }
+        },
+        layout: {
+          hierarchical: {
+            direction: "UD",
+            sortMethod: "directed"
+          }
+        },
+        physics: false
+      };
+      new vis.Network(container, data, options);
+    }
+  </script>
+</body>
+</html>
